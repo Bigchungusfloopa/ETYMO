@@ -31,6 +31,7 @@ import com.example.etymo.screens.EtymoScreen
 import com.example.etymo.screens.LearnScreen
 import com.example.etymo.screens.ProfileScreen
 import com.example.etymo.screens.ScriptScreen
+import com.example.etymo.ui.components.ClayCard
 import com.example.etymo.ui.theme.*
 
 enum class EtymoTab(
@@ -59,12 +60,13 @@ class MainActivity : ComponentActivity() {
 fun EtymoApp() {
     var currentTab by rememberSaveable { mutableStateOf(EtymoTab.LEARN) }
 
-    Box(modifier = Modifier.fillMaxSize()) {
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+    ) {
         // Screen content
         Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(bottom = 72.dp)
+            modifier = Modifier.fillMaxSize()
         ) {
             when (currentTab) {
                 EtymoTab.LEARN -> LearnScreen()
@@ -74,42 +76,33 @@ fun EtymoApp() {
             }
         }
 
-        // Glassmorphism bottom nav bar
+        // Claymorphism bottom nav bar
         Box(
             modifier = Modifier
                 .fillMaxWidth()
                 .align(Alignment.BottomCenter)
-                .padding(horizontal = 12.dp, vertical = 12.dp)
-                .clip(RoundedCornerShape(28.dp))
-                .background(
-                    Brush.linearGradient(
-                        listOf(
-                            Color(0xCC1A1400),
-                            Color(0xBB0D0A00)
-                        )
-                    )
-                )
-                .border(
-                    1.5.dp,
-                    Brush.horizontalGradient(
-                        listOf(GlassBorder, GlassBorderWhite, GlassBorder)
-                    ),
-                    RoundedCornerShape(28.dp)
-                )
-                .padding(horizontal = 8.dp, vertical = 10.dp)
+                .padding(horizontal = 24.dp, vertical = 24.dp)
         ) {
-            Row(
+            ClayCard(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceEvenly,
-                verticalAlignment = Alignment.CenterVertically
+                backgroundColor = EtymoWhite,
+                cornerRadius = 32.dp
             ) {
-                EtymoTab.entries.forEach { tab ->
-                    val isSelected = tab == currentTab
-                    NavItem(
-                        tab = tab,
-                        isSelected = isSelected,
-                        onClick = { currentTab = tab }
-                    )
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 8.dp, vertical = 12.dp),
+                    horizontalArrangement = Arrangement.SpaceEvenly,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    EtymoTab.entries.forEach { tab ->
+                        val isSelected = tab == currentTab
+                        NavItem(
+                            tab = tab,
+                            isSelected = isSelected,
+                            onClick = { currentTab = tab }
+                        )
+                    }
                 }
             }
         }
@@ -118,23 +111,14 @@ fun EtymoApp() {
 
 @Composable
 fun NavItem(tab: EtymoTab, isSelected: Boolean, onClick: () -> Unit) {
-    val bgModifier = if (isSelected) {
-        Modifier
-            .clip(RoundedCornerShape(20.dp))
-            .background(
-                Brush.horizontalGradient(listOf(EtymoYellow, EtymoAmber))
-            )
-            .padding(horizontal = 16.dp, vertical = 8.dp)
-    } else {
-        Modifier
-            .clip(RoundedCornerShape(20.dp))
-            .padding(horizontal = 16.dp, vertical = 8.dp)
-    }
-
     Box(
         modifier = Modifier
+            .clip(RoundedCornerShape(20.dp))
             .clickable(onClick = onClick)
-            .then(bgModifier),
+            .then(
+                if (isSelected) Modifier.background(EtymoYellow) else Modifier
+            )
+            .padding(horizontal = 16.dp, vertical = 10.dp),
         contentAlignment = Alignment.Center
     ) {
         if (isSelected) {
@@ -152,15 +136,15 @@ fun NavItem(tab: EtymoTab, isSelected: Boolean, onClick: () -> Unit) {
                     text = tab.label,
                     color = EtymoDark,
                     fontWeight = FontWeight.Bold,
-                    fontSize = 13.sp
+                    fontSize = 14.sp
                 )
             }
         } else {
             Icon(
                 imageVector = tab.icon,
                 contentDescription = tab.label,
-                tint = EtymoWhiteDim,
-                modifier = Modifier.size(22.dp)
+                tint = EtymoDarkCard.copy(alpha = 0.5f),
+                modifier = Modifier.size(24.dp)
             )
         }
     }
