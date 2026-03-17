@@ -1,6 +1,8 @@
 package com.example.etymo.screens
 
-import androidx.compose.animation.animateColorAsState
+import android.speech.tts.TextToSpeech
+import androidx.compose.animation.*
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -9,9 +11,12 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.NavigateNext
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Undo
+import androidx.compose.material.icons.filled.VolumeUp
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
@@ -20,30 +25,100 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.etymo.ui.components.ClayCard
 import com.example.etymo.ui.components.DrawingCanvas
 import com.example.etymo.ui.components.ScriptCharacterCard
+import com.example.etymo.ui.components.TracingAccuracyChecker
 import com.example.etymo.ui.theme.*
+import kotlinx.coroutines.delay
+
+// Result state after checking accuracy
+enum class TracingResult { NONE, CORRECT, TRY_AGAIN }
 
 @Composable
 fun ScriptScreen() {
+    val context = LocalContext.current
+
+    // TTS engine
+    var ttsReady by remember { mutableStateOf(false) }
+    val tts = remember {
+        var engine: TextToSpeech? = null
+        engine = TextToSpeech(context) { status ->
+            ttsReady = status == TextToSpeech.SUCCESS
+        }
+        engine
+    }
+
+    DisposableEffect(Unit) {
+        onDispose { tts?.shutdown() }
+    }
+
     var selectedScriptIndex by remember { mutableIntStateOf(0) }
     var selectedCharIndex by remember { mutableIntStateOf(0) }
     var strokes by remember { mutableStateOf(listOf<List<Offset>>()) }
     var currentStroke by remember { mutableStateOf(listOf<Offset>()) }
+    var tracingResult by remember { mutableStateOf(TracingResult.NONE) }
+    var canvasSize by remember { mutableStateOf(IntSize.Zero) }
 
     val scripts = availableScripts
     val currentScript = scripts[selectedScriptIndex]
     val currentChar = currentScript.characters.getOrNull(selectedCharIndex)
 
-    // Reset character index when switching scripts
+    // Set TTS locale when script changes
+    LaunchedEffect(selectedScriptIndex, ttsReady) {
+        if (ttsReady && tts != null) {
+            tts.language = currentScript.locale
+        }
+    }
+
+    // Reset state when switching scripts
     LaunchedEffect(selectedScriptIndex) {
         selectedCharIndex = 0
         strokes = emptyList()
         currentStroke = emptyList()
+        tracingResult = TracingResult.NONE
+    }
+
+    // Auto-dismiss the result after 2 seconds
+    LaunchedEffect(tracingResult) {
+        if (tracingResult != TracingResult.NONE) {
+            delay(2000)
+            if (tracingResult == TracingResult.CORRECT) {
+                // Auto advance on correct
+                val nextIndex = selectedCharIndex + 1
+                selectedCharIndex = if (nextIndex < currentScript.characters.size) nextIndex else 0
+                strokes = emptyList()
+                currentStroke = emptyList()
+            }
+            tracingResult = TracingResult.NONE
+        }
+    }
+
+    fun speakChar(char: String) {
+        if (ttsReady && tts != null) {
+            tts.language = currentScript.locale
+            tts.speak(char, TextToSpeech.QUEUE_FLUSH, null, "char_$char")
+        }
+    }
+
+    fun checkAccuracy() {
+        if (strokes.isEmpty() || currentChar == null) return
+        if (canvasSize.width == 0 || canvasSize.height == 0) return
+
+        val isCorrect = TracingAccuracyChecker.isAccurate(
+            referenceChar = currentChar.char,
+            strokes = strokes,
+            canvasWidth = canvasSize.width.toFloat(),
+            canvasHeight = canvasSize.height.toFloat(),
+            threshold = 0.20f
+        )
+        tracingResult = if (isCorrect) TracingResult.CORRECT else TracingResult.TRY_AGAIN
     }
 
     Box(
@@ -56,7 +131,7 @@ fun ScriptScreen() {
                 .fillMaxSize()
                 .padding(horizontal = 24.dp)
                 .padding(top = 48.dp, bottom = 120.dp),
-            verticalArrangement = Arrangement.spacedBy(20.dp)
+            verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             // Header
             Text(
@@ -98,7 +173,7 @@ fun ScriptScreen() {
                 }
             }
 
-            // Character grid as horizontal scroll
+            // Character grid
             Column {
                 Text(
                     text = "Characters",
@@ -121,41 +196,66 @@ fun ScriptScreen() {
                                 selectedCharIndex = charIndex
                                 strokes = emptyList()
                                 currentStroke = emptyList()
+                                tracingResult = TracingResult.NONE
+                            },
+                            onSpeakClick = {
+                                speakChar(char.char)
                             }
                         )
                     }
                 }
             }
 
-            // Drawing Canvas
-            Column(modifier = Modifier.weight(1f)) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        text = "Draw Here",
-                        fontSize = 16.sp,
-                        fontWeight = FontWeight.SemiBold,
-                        color = EtymoDark
-                    )
-                    if (currentChar != null) {
+            // Drawing Canvas header
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "Draw Here",
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = EtymoDark
+                )
+                if (currentChar != null) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
                         Text(
                             text = "${currentChar.char}  (${currentChar.romanized})",
                             fontSize = 14.sp,
                             fontWeight = FontWeight.Medium,
                             color = EtymoDarkCard
                         )
+                        // Inline speaker button for the currently selected character
+                        Box(
+                            modifier = Modifier
+                                .size(28.dp)
+                                .clip(RoundedCornerShape(8.dp))
+                                .background(EtymoYellow.copy(alpha = 0.3f))
+                                .clickable { speakChar(currentChar.char) },
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.VolumeUp,
+                                contentDescription = "Pronounce",
+                                tint = EtymoDark,
+                                modifier = Modifier.size(16.dp)
+                            )
+                        }
                     }
                 }
-                Spacer(modifier = Modifier.height(8.dp))
+            }
 
-                // Combine completed strokes with the in-progress stroke
-                val allStrokes = remember(strokes, currentStroke) {
-                    if (currentStroke.isNotEmpty()) strokes + listOf(currentStroke) else strokes
-                }
+            // Combine completed strokes with the in-progress stroke
+            val allStrokes = remember(strokes, currentStroke) {
+                if (currentStroke.isNotEmpty()) strokes + listOf(currentStroke) else strokes
+            }
 
+            // Drawing canvas with overlay
+            Box(modifier = Modifier.weight(1f)) {
                 DrawingCanvas(
                     strokes = allStrokes,
                     referenceChar = currentChar?.char ?: "",
@@ -172,9 +272,48 @@ fun ScriptScreen() {
                         }
                     },
                     modifier = Modifier
-                        .fillMaxWidth()
-                        .weight(1f)
+                        .fillMaxSize()
+                        .onSizeChanged { size -> canvasSize = size }
                 )
+
+                // Result overlay
+                androidx.compose.animation.AnimatedVisibility(
+                    visible = tracingResult != TracingResult.NONE,
+                    enter = fadeIn(tween(300)) + scaleIn(tween(300)),
+                    exit = fadeOut(tween(300)) + scaleOut(tween(300)),
+                    modifier = Modifier.align(Alignment.Center)
+                ) {
+                    val isCorrect = tracingResult == TracingResult.CORRECT
+                    Box(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(20.dp))
+                            .background(
+                                if (isCorrect) EtymoGreen.copy(alpha = 0.9f)
+                                else EtymoRed.copy(alpha = 0.9f)
+                            )
+                            .padding(horizontal = 32.dp, vertical = 20.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(10.dp)
+                        ) {
+                            Icon(
+                                imageVector = if (isCorrect) Icons.Default.CheckCircle
+                                else Icons.Default.Refresh,
+                                contentDescription = null,
+                                tint = Color.White,
+                                modifier = Modifier.size(28.dp)
+                            )
+                            Text(
+                                text = if (isCorrect) "Correct!" else "Try Again",
+                                fontSize = 20.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = Color.White
+                            )
+                        }
+                    }
+                }
             }
 
             // Controls Row
@@ -186,7 +325,7 @@ fun ScriptScreen() {
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 8.dp, vertical = 6.dp),
+                        .padding(horizontal = 4.dp, vertical = 6.dp),
                     horizontalArrangement = Arrangement.SpaceEvenly,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
@@ -198,26 +337,22 @@ fun ScriptScreen() {
                                 if (strokes.isNotEmpty()) {
                                     strokes = strokes.dropLast(1)
                                 }
+                                tracingResult = TracingResult.NONE
                             }
-                            .padding(horizontal = 16.dp, vertical = 10.dp),
+                            .padding(horizontal = 12.dp, vertical = 10.dp),
                         contentAlignment = Alignment.Center
                     ) {
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                            horizontalArrangement = Arrangement.spacedBy(4.dp)
                         ) {
                             Icon(
                                 imageVector = Icons.Default.Undo,
                                 contentDescription = "Undo",
                                 tint = EtymoDark,
-                                modifier = Modifier.size(20.dp)
+                                modifier = Modifier.size(18.dp)
                             )
-                            Text(
-                                text = "Undo",
-                                fontSize = 14.sp,
-                                fontWeight = FontWeight.Medium,
-                                color = EtymoDark
-                            )
+                            Text("Undo", fontSize = 13.sp, fontWeight = FontWeight.Medium, color = EtymoDark)
                         }
                     }
 
@@ -229,26 +364,45 @@ fun ScriptScreen() {
                             .clickable {
                                 strokes = emptyList()
                                 currentStroke = emptyList()
+                                tracingResult = TracingResult.NONE
                             }
-                            .padding(horizontal = 16.dp, vertical = 10.dp),
+                            .padding(horizontal = 12.dp, vertical = 10.dp),
                         contentAlignment = Alignment.Center
                     ) {
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                            horizontalArrangement = Arrangement.spacedBy(4.dp)
                         ) {
                             Icon(
                                 imageVector = Icons.Default.Delete,
                                 contentDescription = "Clear",
                                 tint = EtymoRed,
-                                modifier = Modifier.size(20.dp)
+                                modifier = Modifier.size(18.dp)
                             )
-                            Text(
-                                text = "Clear",
-                                fontSize = 14.sp,
-                                fontWeight = FontWeight.Medium,
-                                color = EtymoRed
+                            Text("Clear", fontSize = 13.sp, fontWeight = FontWeight.Medium, color = EtymoRed)
+                        }
+                    }
+
+                    // Check accuracy
+                    Box(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(14.dp))
+                            .background(EtymoGreen.copy(alpha = 0.15f))
+                            .clickable { checkAccuracy() }
+                            .padding(horizontal = 12.dp, vertical = 10.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.CheckCircle,
+                                contentDescription = "Check",
+                                tint = EtymoGreen,
+                                modifier = Modifier.size(18.dp)
                             )
+                            Text("Check", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = EtymoGreen)
                         }
                     }
 
@@ -259,32 +413,24 @@ fun ScriptScreen() {
                             .background(EtymoYellow)
                             .clickable {
                                 val nextIndex = selectedCharIndex + 1
-                                if (nextIndex < currentScript.characters.size) {
-                                    selectedCharIndex = nextIndex
-                                } else {
-                                    selectedCharIndex = 0
-                                }
+                                selectedCharIndex = if (nextIndex < currentScript.characters.size) nextIndex else 0
                                 strokes = emptyList()
                                 currentStroke = emptyList()
+                                tracingResult = TracingResult.NONE
                             }
-                            .padding(horizontal = 16.dp, vertical = 10.dp),
+                            .padding(horizontal = 12.dp, vertical = 10.dp),
                         contentAlignment = Alignment.Center
                     ) {
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                            horizontalArrangement = Arrangement.spacedBy(4.dp)
                         ) {
-                            Text(
-                                text = "Next",
-                                fontSize = 14.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = EtymoDark
-                            )
+                            Text("Next", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = EtymoDark)
                             Icon(
                                 imageVector = Icons.Default.NavigateNext,
                                 contentDescription = "Next",
                                 tint = EtymoDark,
-                                modifier = Modifier.size(20.dp)
+                                modifier = Modifier.size(18.dp)
                             )
                         }
                     }
