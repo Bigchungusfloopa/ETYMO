@@ -32,6 +32,11 @@ import com.example.etymo.screens.LearnScreen
 import com.example.etymo.screens.ProfileScreen
 import com.example.etymo.screens.ScriptScreen
 import com.example.etymo.ui.components.ClayCard
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.etymo.ui.components.SubscriptionModal
+import com.example.etymo.ui.components.PaymentPortalModal
+import com.example.etymo.viewmodels.UserViewModel
+import com.example.etymo.domain.SubscriptionTier
 import com.example.etymo.ui.theme.*
 
 enum class EtymoTab(
@@ -56,8 +61,57 @@ class MainActivity : ComponentActivity() {
     }
 }
 
+enum class AppState {
+    LANDING, AUTH, MAIN_APP
+}
+
 @Composable
 fun EtymoApp() {
+    val userViewModel: UserViewModel = viewModel()
+    val currentUser by userViewModel.currentUser.collectAsState()
+    val isInitializing by userViewModel.isInitializing.collectAsState()
+
+    var currentAppState by remember { mutableStateOf(AppState.LANDING) }
+    var isSignUp by remember { mutableStateOf(true) }
+
+    LaunchedEffect(currentUser) {
+        if (currentUser != null) {
+            currentAppState = AppState.MAIN_APP
+        } else {
+            currentAppState = AppState.LANDING
+        }
+    }
+
+    if (isInitializing) {
+        // Optional: show a splash logo or loading spinner, empty is fine, prevents flickering.
+        Box(modifier = Modifier.fillMaxSize().background(EtymoDark))
+        return
+    }
+
+    when (currentAppState) {
+        AppState.LANDING -> {
+            com.example.etymo.screens.LandingScreen(
+                onNavigateToAuth = { signup ->
+                    isSignUp = signup
+                    currentAppState = AppState.AUTH
+                }
+            )
+        }
+        AppState.AUTH -> {
+            com.example.etymo.screens.AuthScreen(
+                viewModel = userViewModel,
+                initialIsSignUp = isSignUp,
+                onBack = { currentAppState = AppState.LANDING }
+            )
+        }
+        AppState.MAIN_APP -> {
+            MainAppDashboard(userViewModel)
+        }
+    }
+}
+
+@Composable
+fun MainAppDashboard(userViewModel: UserViewModel) {
     var currentTab by rememberSaveable { mutableStateOf(EtymoTab.LEARN) }
 
     Box(
@@ -72,7 +126,7 @@ fun EtymoApp() {
                 EtymoTab.LEARN -> LearnScreen()
                 EtymoTab.SCRIPT -> ScriptScreen()
                 EtymoTab.ETYMO -> EtymoScreen()
-                EtymoTab.PROFILE -> ProfileScreen()
+                EtymoTab.PROFILE -> ProfileScreen(userViewModel)
             }
         }
 

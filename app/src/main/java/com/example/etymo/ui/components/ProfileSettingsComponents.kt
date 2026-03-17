@@ -26,9 +26,40 @@ import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import com.example.etymo.ui.theme.*
 
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.activity.result.PickVisualMediaRequest
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.layout.ContentScale
+import coil.compose.AsyncImage
+
 @Composable
-fun ProfilePhotoSection(modifier: Modifier = Modifier) {
+fun ProfilePhotoSection(
+    modifier: Modifier = Modifier, 
+    user: com.example.etymo.data.UserEntity,
+    onUserUpdate: (com.example.etymo.data.UserEntity) -> Unit,
+    onLogout: () -> Unit = {}
+) {
     var showEditMenu by remember { mutableStateOf(false) }
+    val context = LocalContext.current
+    
+    val photoPickerLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.PickVisualMedia(),
+        onResult = { uri ->
+            showEditMenu = false
+            if (uri != null) {
+                try {
+                    context.contentResolver.takePersistableUriPermission(
+                        uri, 
+                        android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION
+                    )
+                    onUserUpdate(user.copy(profileImageUri = uri.toString()))
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                }
+            }
+        }
+    )
 
     Row(
         modifier = modifier.fillMaxWidth(),
@@ -41,45 +72,82 @@ fun ProfilePhotoSection(modifier: Modifier = Modifier) {
                 .background(Color.LightGray),
             contentAlignment = Alignment.Center
         ) {
-            Icon(
-                imageVector = Icons.Default.Person,
-                contentDescription = "Profile Photo",
-                tint = EtymoWhite,
-                modifier = Modifier.size(64.dp)
-            )
+            if (user.profileImageUri != null) {
+                AsyncImage(
+                    model = user.profileImageUri,
+                    contentDescription = "Profile Photo",
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier.fillMaxSize()
+                )
+            } else {
+                Icon(
+                    imageVector = Icons.Default.Person,
+                    contentDescription = "Profile Photo",
+                    tint = EtymoWhite,
+                    modifier = Modifier.size(64.dp)
+                )
+            }
         }
         
         Spacer(modifier = Modifier.width(20.dp))
         
         Column {
             Text(
-                text = "Saish",
+                text = user.name.ifBlank { "User" },
                 fontSize = 26.sp,
                 fontWeight = FontWeight.Bold,
                 color = EtymoDark
             )
             
             Spacer(modifier = Modifier.height(8.dp))
-            Button(
-                onClick = { showEditMenu = true },
-                colors = ButtonDefaults.buttonColors(containerColor = EtymoPurple.copy(alpha = 0.1f)),
-                shape = RoundedCornerShape(50.dp),
-                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 6.dp)
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(
-                        imageVector = Icons.Default.PhotoCamera,
-                        contentDescription = null,
-                        tint = EtymoPurple,
-                        modifier = Modifier.size(16.dp)
-                    )
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text(
-                        text = "Edit Photo",
-                        fontSize = 14.sp,
-                        fontWeight = FontWeight.SemiBold,
-                        color = EtymoPurple
-                    )
+                Button(
+                    onClick = { showEditMenu = true },
+                    colors = ButtonDefaults.buttonColors(containerColor = EtymoPurple.copy(alpha = 0.1f)),
+                    shape = RoundedCornerShape(50.dp),
+                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 6.dp)
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(
+                            imageVector = Icons.Default.PhotoCamera,
+                            contentDescription = null,
+                            tint = EtymoPurple,
+                            modifier = Modifier.size(16.dp)
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(
+                            text = "Edit Photo",
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = EtymoPurple
+                        )
+                    }
+                }
+                
+                Button(
+                    onClick = onLogout,
+                    colors = ButtonDefaults.buttonColors(containerColor = Color.Red.copy(alpha = 0.1f)),
+                    shape = RoundedCornerShape(50.dp),
+                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 6.dp)
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(
+                            imageVector = Icons.Default.Logout,
+                            contentDescription = "Logout",
+                            tint = Color.Red,
+                            modifier = Modifier.size(16.dp)
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(
+                            text = "Logout",
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = Color.Red
+                        )
+                    }
                 }
             }
         }
@@ -109,11 +177,26 @@ fun ProfilePhotoSection(modifier: Modifier = Modifier) {
                             color = EtymoDark,
                             modifier = Modifier.padding(bottom = 16.dp)
                         )
-                        EditOptionRow(icon = Icons.Default.PhotoLibrary, text = "Choose from Gallery", color = EtymoPurple)
+                        EditOptionRow(
+                            icon = Icons.Default.PhotoLibrary, 
+                            text = "Choose from Gallery", 
+                            color = EtymoPurple,
+                            onClick = { 
+                                photoPickerLauncher.launch(
+                                    PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
+                                )
+                            }
+                        )
                         Spacer(modifier = Modifier.height(12.dp))
-                        EditOptionRow(icon = Icons.Default.CameraAlt, text = "Take a Photo", color = EtymoGreen)
-                        Spacer(modifier = Modifier.height(12.dp))
-                        EditOptionRow(icon = Icons.Default.Delete, text = "Remove Photo", color = Color.Red.copy(alpha = 0.8f))
+                        EditOptionRow(
+                            icon = Icons.Default.Delete, 
+                            text = "Remove Photo", 
+                            color = Color.Red.copy(alpha = 0.8f),
+                            onClick = {
+                                onUserUpdate(user.copy(profileImageUri = null))
+                                showEditMenu = false
+                            }
+                        )
                     }
                 }
             }
@@ -122,13 +205,13 @@ fun ProfilePhotoSection(modifier: Modifier = Modifier) {
 }
 
 @Composable
-private fun EditOptionRow(icon: androidx.compose.ui.graphics.vector.ImageVector, text: String, color: Color) {
+private fun EditOptionRow(icon: androidx.compose.ui.graphics.vector.ImageVector, text: String, color: Color, onClick: () -> Unit = {}) {
     Row(
         verticalAlignment = Alignment.CenterVertically,
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(12.dp))
-            .clickable { /* Handle action */ }
+            .clickable(onClick = onClick)
             .padding(12.dp)
     ) {
         Icon(imageVector = icon, contentDescription = null, tint = color, modifier = Modifier.size(24.dp))
@@ -138,7 +221,12 @@ private fun EditOptionRow(icon: androidx.compose.ui.graphics.vector.ImageVector,
 }
 
 @Composable
-fun AppSettingsModal(showDialog: Boolean, onDismiss: () -> Unit) {
+fun AppSettingsModal(
+    showDialog: Boolean,
+    user: com.example.etymo.data.UserEntity,
+    onUserUpdate: (com.example.etymo.data.UserEntity) -> Unit,
+    onDismiss: () -> Unit
+) {
     if (showDialog) {
         Dialog(
             onDismissRequest = onDismiss,
@@ -146,11 +234,11 @@ fun AppSettingsModal(showDialog: Boolean, onDismiss: () -> Unit) {
         ) {
             var visible by remember { mutableStateOf(false) }
             
-            // State for settings
-            var isDarkMode by remember { mutableStateOf(false) }
-            var areNotificationsEnabled by remember { mutableStateOf(true) }
-            var areSoundsEnabled by remember { mutableStateOf(true) }
-            var usageLimit by remember { mutableStateOf(30f) }
+            // State for settings initialized from UserEntity
+            var isDarkMode by remember { mutableStateOf(user.isDarkMode) }
+            var areNotificationsEnabled by remember { mutableStateOf(user.areNotificationsEnabled) }
+            var areSoundsEnabled by remember { mutableStateOf(user.areSoundsEnabled) }
+            var usageLimit by remember { mutableStateOf(user.usageLimitMinutes) }
 
             LaunchedEffect(Unit) {
                 visible = true
@@ -222,13 +310,16 @@ fun AppSettingsModal(showDialog: Boolean, onDismiss: () -> Unit) {
                                         icon = Icons.Default.DarkMode,
                                         text = "Dark Mode",
                                         isChecked = isDarkMode,
-                                        onCheckedChange = { isDarkMode = it }
+                                        onCheckedChange = { 
+                                            isDarkMode = it 
+                                            onUserUpdate(user.copy(isDarkMode = it))
+                                        }
                                     )
                                     Spacer(modifier = Modifier.height(16.dp))
                                     SettingNavigationRow(
                                         icon = Icons.Default.Language,
                                         text = "Language",
-                                        value = "English (US)"
+                                        value = user.language
                                     )
                                 }
                                 
@@ -238,14 +329,20 @@ fun AppSettingsModal(showDialog: Boolean, onDismiss: () -> Unit) {
                                         icon = Icons.Default.NotificationsActive,
                                         text = "Push Notifications",
                                         isChecked = areNotificationsEnabled,
-                                        onCheckedChange = { areNotificationsEnabled = it }
+                                        onCheckedChange = { 
+                                            areNotificationsEnabled = it 
+                                            onUserUpdate(user.copy(areNotificationsEnabled = it))
+                                        }
                                     )
                                     Spacer(modifier = Modifier.height(16.dp))
                                     SettingToggleRow(
                                         icon = Icons.Default.VolumeUp,
                                         text = "App Sounds",
                                         isChecked = areSoundsEnabled,
-                                        onCheckedChange = { areSoundsEnabled = it }
+                                        onCheckedChange = { 
+                                            areSoundsEnabled = it 
+                                            onUserUpdate(user.copy(areSoundsEnabled = it))
+                                        }
                                     )
                                 }
                                 
@@ -259,7 +356,12 @@ fun AppSettingsModal(showDialog: Boolean, onDismiss: () -> Unit) {
                                     )
                                     Slider(
                                         value = usageLimit,
-                                        onValueChange = { usageLimit = it },
+                                        onValueChange = { 
+                                            usageLimit = it 
+                                        },
+                                        onValueChangeFinished = {
+                                            onUserUpdate(user.copy(usageLimitMinutes = usageLimit))
+                                        },
                                         valueRange = 10f..120f,
                                         steps = 10,
                                         colors = SliderDefaults.colors(
@@ -343,7 +445,12 @@ private fun SettingNavigationRow(icon: androidx.compose.ui.graphics.vector.Image
 }
 
 @Composable
-fun AccountSettingsModal(showDialog: Boolean, onDismiss: () -> Unit) {
+fun AccountSettingsModal(
+    showDialog: Boolean,
+    user: com.example.etymo.data.UserEntity,
+    onUserUpdate: (com.example.etymo.data.UserEntity) -> Unit,
+    onDismiss: () -> Unit
+) {
     if (showDialog) {
         Dialog(
             onDismissRequest = onDismiss,
@@ -351,10 +458,10 @@ fun AccountSettingsModal(showDialog: Boolean, onDismiss: () -> Unit) {
         ) {
             var visible by remember { mutableStateOf(false) }
             
-            // Edit state defaults
-            var birthdate by remember { mutableStateOf("Aug 12, 1998") }
-            var email by remember { mutableStateOf("user@etymo.app") }
-            var phone by remember { mutableStateOf("+1 555-0198") }
+            // Edit state defaults mapped to UserEntity
+            var birthdate by remember { mutableStateOf(user.birthdate) }
+            var email by remember { mutableStateOf(user.email) }
+            var phone by remember { mutableStateOf(user.phone) }
 
             LaunchedEffect(Unit) {
                 visible = true
@@ -444,7 +551,14 @@ fun AccountSettingsModal(showDialog: Boolean, onDismiss: () -> Unit) {
                                 Spacer(modifier = Modifier.height(16.dp))
                                 
                                 Button(
-                                    onClick = onDismiss,
+                                    onClick = {
+                                        onUserUpdate(user.copy(
+                                            email = email,
+                                            phone = phone,
+                                            birthdate = birthdate
+                                        ))
+                                        onDismiss()
+                                    },
                                     colors = ButtonDefaults.buttonColors(containerColor = EtymoPurple),
                                     shape = RoundedCornerShape(16.dp),
                                     modifier = Modifier.fillMaxWidth().height(52.dp)
@@ -487,7 +601,9 @@ private fun AccountEditField(
                 focusedBorderColor = EtymoPurple,
                 unfocusedBorderColor = EtymoOffWhite,
                 focusedContainerColor = EtymoOffWhite.copy(alpha = 0.5f),
-                unfocusedContainerColor = EtymoOffWhite.copy(alpha = 0.5f)
+                unfocusedContainerColor = EtymoOffWhite.copy(alpha = 0.5f),
+                focusedTextColor = EtymoDark,
+                unfocusedTextColor = EtymoDark
             ),
             singleLine = true
         )

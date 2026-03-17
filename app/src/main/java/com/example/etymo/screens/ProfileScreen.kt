@@ -27,13 +27,23 @@ import com.example.etymo.ui.components.CreditCard
 import com.example.etymo.ui.components.ProfilePhotoSection
 import com.example.etymo.ui.components.AppSettingsModal
 import com.example.etymo.ui.components.StreakCard
+import com.example.etymo.ui.components.StreakCard
 import com.example.etymo.ui.components.WordsMasteredCard
+import com.example.etymo.ui.components.SubscriptionModal
+import com.example.etymo.ui.components.PaymentPortalModal
+import com.example.etymo.viewmodels.UserViewModel
+import com.example.etymo.domain.SubscriptionTier
 import com.example.etymo.ui.theme.*
 
 @Composable
-fun ProfileScreen() {
+fun ProfileScreen(viewModel: UserViewModel) {
+    val user by viewModel.currentUser.collectAsState()
+    
     var showAppSettings by remember { mutableStateOf(false) }
     var showAccountSettings by remember { mutableStateOf(false) }
+    var showSubscriptionModal by remember { mutableStateOf(false) }
+    var planToPurchase by remember { mutableStateOf<SubscriptionTier?>(null) }
+    var showPaymentPortal by remember { mutableStateOf(false) }
     
     Box(
         modifier = Modifier
@@ -98,7 +108,14 @@ fun ProfileScreen() {
                     modifier = Modifier.padding(bottom = 16.dp, top = 8.dp)
                 )
                 
-                ProfilePhotoSection(modifier = Modifier.fillMaxWidth().padding(bottom = 24.dp))
+                if (user != null) {
+                    ProfilePhotoSection(
+                        modifier = Modifier.fillMaxWidth().padding(bottom = 24.dp),
+                        user = user!!,
+                        onUserUpdate = { viewModel.updateUser(it) },
+                        onLogout = { viewModel.logout() }
+                    )
+                }
                 
                 GlassCard(
                     modifier = Modifier.fillMaxWidth(),
@@ -110,12 +127,14 @@ fun ProfileScreen() {
                     Column(
                         modifier = Modifier.padding(vertical = 12.dp)
                     ) {
-                        SettingsRowItem(
-                            icon = Icons.Rounded.WorkspacePremium,
-                            title = "Subscription Info",
-                            subtitle = "Pro Plan (Active)",
-                            tint = EtymoPurple
-                        )
+                        Box(modifier = Modifier.clickable { showSubscriptionModal = true }) {
+                            SettingsRowItem(
+                                icon = Icons.Rounded.WorkspacePremium,
+                                title = "Subscription Info",
+                                subtitle = "${user?.currentTier?.title ?: "Loading..."} (Active)",
+                                tint = EtymoPurple
+                            )
+                        }
                         Divider(
                             color = EtymoOffWhite,
                             thickness = 2.dp,
@@ -147,15 +166,48 @@ fun ProfileScreen() {
             }
         }
         
-        AppSettingsModal(
-            showDialog = showAppSettings,
-            onDismiss = { showAppSettings = false }
+        if (user != null) {
+            AppSettingsModal(
+                showDialog = showAppSettings,
+                user = user!!,
+                onUserUpdate = { updatedUser -> viewModel.updateUser(updatedUser) },
+                onDismiss = { showAppSettings = false }
+            )
+            
+            AccountSettingsModal(
+                showDialog = showAccountSettings,
+                user = user!!,
+                onUserUpdate = { updatedUser -> viewModel.updateUser(updatedUser) },
+                onDismiss = { showAccountSettings = false }
+            )
+        }
+
+        SubscriptionModal(
+            showDialog = showSubscriptionModal,
+            currentTier = user?.currentTier ?: SubscriptionTier.FREE,
+            onDismiss = { showSubscriptionModal = false },
+            onPlanSelected = { selectedPlan ->
+                planToPurchase = selectedPlan
+                showSubscriptionModal = false
+                showPaymentPortal = true
+            }
         )
-        
-        AccountSettingsModal(
-            showDialog = showAccountSettings,
-            onDismiss = { showAccountSettings = false }
-        )
+
+        planToPurchase?.let { plan ->
+            PaymentPortalModal(
+                showDialog = showPaymentPortal,
+                plan = plan,
+                onDismiss = { 
+                    showPaymentPortal = false
+                    planToPurchase = null
+                },
+                onPaymentSuccess = {
+                    viewModel.updateSubscriptionTier(plan)
+                    showPaymentPortal = false
+                    planToPurchase = null
+                }
+            )
+        }
     }
 }
 
