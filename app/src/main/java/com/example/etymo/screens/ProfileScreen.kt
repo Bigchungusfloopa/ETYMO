@@ -27,7 +27,6 @@ import com.example.etymo.ui.components.CreditCard
 import com.example.etymo.ui.components.ProfilePhotoSection
 import com.example.etymo.ui.components.AppSettingsModal
 import com.example.etymo.ui.components.StreakCard
-import com.example.etymo.ui.components.StreakCard
 import com.example.etymo.ui.components.WordsMasteredCard
 import com.example.etymo.ui.components.SubscriptionModal
 import com.example.etymo.ui.components.PaymentPortalModal
@@ -135,7 +134,7 @@ fun ProfileScreen(viewModel: UserViewModel) {
                                 tint = EtymoPurple
                             )
                         }
-                        Divider(
+                        HorizontalDivider(
                             color = EtymoOffWhite,
                             thickness = 2.dp,
                             modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp)
@@ -148,7 +147,7 @@ fun ProfileScreen(viewModel: UserViewModel) {
                                 tint = EtymoDark
                             )
                         }
-                        Divider(
+                        HorizontalDivider(
                             color = EtymoOffWhite,
                             thickness = 2.dp,
                             modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp)

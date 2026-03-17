@@ -193,7 +193,7 @@ fun PlanCard(
             }
 
             Spacer(modifier = Modifier.height(16.dp))
-            Divider(color = EtymoOffWhite, thickness = 1.dp)
+            HorizontalDivider(color = EtymoOffWhite, thickness = 1.dp)
             Spacer(modifier = Modifier.height(16.dp))
 
             plan.features.forEach { feature ->

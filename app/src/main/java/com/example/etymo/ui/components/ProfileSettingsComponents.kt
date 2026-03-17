@@ -295,7 +295,7 @@ fun AppSettingsModal(
                                 }
                             }
                             
-                            Divider(color = EtymoOffWhite, thickness = 2.dp)
+                            HorizontalDivider(color = EtymoOffWhite, thickness = 2.dp)
                             
                             // Scrollable Settings Content
                             Column(
@@ -518,7 +518,7 @@ fun AccountSettingsModal(
                                 }
                             }
                             
-                            Divider(color = EtymoOffWhite, thickness = 2.dp)
+                            HorizontalDivider(color = EtymoOffWhite, thickness = 2.dp)
                             
                             // Scrollable Settings Content
                             Column(

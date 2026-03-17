@@ -6,8 +6,8 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -20,7 +20,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.draw.shadow
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -300,14 +299,14 @@ private fun McqOptions(
 
             val borderColor = when {
                 answerChecked && isCorrectOption -> EtymoCorrect
-                answerChecked && isSelected && !isCorrectOption -> EtymoWrong
+                answerChecked && isSelected -> EtymoWrong
                 isSelected -> EtymoYellow
                 else -> EtymoProgressBg
             }
 
             val bgColor = when {
                 answerChecked && isCorrectOption -> EtymoCorrect.copy(alpha = 0.1f)
-                answerChecked && isSelected && !isCorrectOption -> EtymoWrong.copy(alpha = 0.1f)
+                answerChecked && isSelected -> EtymoWrong.copy(alpha = 0.1f)
                 isSelected -> EtymoYellow.copy(alpha = 0.1f)
                 else -> EtymoWhite
             }
@@ -347,6 +346,7 @@ private fun McqOptions(
 
 // ─── Jumble UI ──────────────────────────────────────────────────────────────
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun JumbleUI(
     words: List<String>,
@@ -444,6 +444,8 @@ private fun MatchUI(
     onSelectPair: (String, String) -> Unit
 ) {
     var selectedLeft by remember { mutableStateOf<String?>(null) }
+    // Stabilize the shuffled order — only re-shuffle when the pairs themselves change
+    val shuffledRight = remember(pairs) { pairs.map { it.second }.shuffled() }
 
     Column {
         Text(
@@ -502,7 +504,7 @@ private fun MatchUI(
 
             // Right column
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                pairs.map { it.second }.shuffled().forEach { right ->
+                shuffledRight.forEach { right ->
                     val isMatched = selectedPairs.containsValue(right)
 
                     Box(

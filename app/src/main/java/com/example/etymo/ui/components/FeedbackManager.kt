@@ -77,41 +77,49 @@ class FeedbackManager(private val context: Context) {
     }
 
     private fun vibrateCorrect() {
-        val vibrator = getVibrator() ?: return
-        vibrator.vibrate(
-            VibrationEffect.createOneShot(50, VibrationEffect.DEFAULT_AMPLITUDE)
-        )
+        try {
+            val vibrator = getVibrator() ?: return
+            vibrator.vibrate(
+                VibrationEffect.createOneShot(50, VibrationEffect.DEFAULT_AMPLITUDE)
+            )
+        } catch (_: Exception) {}
     }
 
     private fun vibrateWrong() {
-        val vibrator = getVibrator() ?: return
-        // Double buzz pattern for wrong answer
-        vibrator.vibrate(
-            VibrationEffect.createWaveform(
-                longArrayOf(0, 80, 60, 80),
-                intArrayOf(0, 200, 0, 200),
-                -1
+        try {
+            val vibrator = getVibrator() ?: return
+            // Double buzz pattern for wrong answer
+            vibrator.vibrate(
+                VibrationEffect.createWaveform(
+                    longArrayOf(0, 80, 60, 80),
+                    intArrayOf(0, 200, 0, 200),
+                    -1
+                )
             )
-        )
+        } catch (_: Exception) {}
     }
 
     private fun vibrateTap() {
-        val vibrator = getVibrator() ?: return
-        vibrator.vibrate(
-            VibrationEffect.createOneShot(15, 80)
-        )
+        try {
+            val vibrator = getVibrator() ?: return
+            vibrator.vibrate(
+                VibrationEffect.createOneShot(15, 80)
+            )
+        } catch (_: Exception) {}
     }
 
     private fun vibrateSuccess() {
-        val vibrator = getVibrator() ?: return
-        // Celebratory triple-pulse
-        vibrator.vibrate(
-            VibrationEffect.createWaveform(
-                longArrayOf(0, 40, 30, 40, 30, 60),
-                intArrayOf(0, 150, 0, 180, 0, 220),
-                -1
+        try {
+            val vibrator = getVibrator() ?: return
+            // Celebratory triple-pulse
+            vibrator.vibrate(
+                VibrationEffect.createWaveform(
+                    longArrayOf(0, 40, 30, 40, 30, 60),
+                    intArrayOf(0, 150, 0, 180, 0, 220),
+                    -1
+                )
             )
-        )
+        } catch (_: Exception) {}
     }
 
     private fun getVibrator(): Vibrator? {
