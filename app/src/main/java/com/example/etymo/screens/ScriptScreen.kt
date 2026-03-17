@@ -35,6 +35,7 @@ import com.example.etymo.ui.components.ClayCard
 import com.example.etymo.ui.components.DrawingCanvas
 import com.example.etymo.ui.components.ScriptCharacterCard
 import com.example.etymo.ui.components.TracingAccuracyChecker
+import com.example.etymo.ui.components.PeacockMascot
 import com.example.etymo.ui.theme.*
 import kotlinx.coroutines.delay
 import android.graphics.Bitmap
@@ -70,7 +71,7 @@ fun ScriptScreen() {
 
     // Camera launcher for dummy translation flow
     var cameraFlowState by remember { mutableStateOf(CameraFlowState.IDLE) }
-    
+
     val cameraLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.TakePicturePreview()
     ) { bitmap: Bitmap? ->
@@ -80,7 +81,7 @@ fun ScriptScreen() {
             cameraFlowState = CameraFlowState.IDLE
         }
     }
-    
+
     // Simulate AI processing
     LaunchedEffect(cameraFlowState) {
         if (cameraFlowState == CameraFlowState.ANALYZING) {
@@ -156,8 +157,19 @@ fun ScriptScreen() {
         CameraFlowState.INTRO -> {
             AlertDialog(
                 onDismissRequest = { cameraFlowState = CameraFlowState.IDLE },
-                title = { Text("Translate (Demo)", fontWeight = FontWeight.Bold, color = EtymoDark) },
-                text = { Text("Translate native language sign boards into English using the camera.", color = EtymoDarkCard) },
+                title = {
+                    Text(
+                        "Translate (Demo)",
+                        fontWeight = FontWeight.Bold,
+                        color = EtymoDark
+                    )
+                },
+                text = {
+                    Text(
+                        "Translate native language sign boards into English using the camera.",
+                        color = EtymoDarkCard
+                    )
+                },
                 confirmButton = {
                     TextButton(onClick = { cameraLauncher.launch(null) }) {
                         Text("Open Camera", color = EtymoYellowDeep, fontWeight = FontWeight.Bold)
@@ -172,13 +184,14 @@ fun ScriptScreen() {
                 shape = RoundedCornerShape(16.dp)
             )
         }
+
         CameraFlowState.ANALYZING -> {
             AlertDialog(
                 onDismissRequest = { /* Cannot dismiss while analyzing */ },
                 title = { Text("Translating...", fontWeight = FontWeight.Bold, color = EtymoDark) },
-                text = { 
+                text = {
                     Row(
-                        modifier = Modifier.fillMaxWidth(), 
+                        modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.Center,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
@@ -190,10 +203,17 @@ fun ScriptScreen() {
                 shape = RoundedCornerShape(16.dp)
             )
         }
+
         CameraFlowState.RESULT -> {
             AlertDialog(
                 onDismissRequest = { cameraFlowState = CameraFlowState.IDLE },
-                title = { Text("AI Translation (Demo)", fontWeight = FontWeight.Bold, color = EtymoDark) },
+                title = {
+                    Text(
+                        "AI Translation (Demo)",
+                        fontWeight = FontWeight.Bold,
+                        color = EtymoDark
+                    )
+                },
                 text = { Text("Result: \"Welcome to our shop!\"", color = EtymoDarkCard) },
                 confirmButton = {
                     TextButton(onClick = { cameraFlowState = CameraFlowState.IDLE }) {
@@ -204,6 +224,7 @@ fun ScriptScreen() {
                 shape = RoundedCornerShape(16.dp)
             )
         }
+
         CameraFlowState.IDLE -> {}
     }
 
@@ -225,13 +246,19 @@ fun ScriptScreen() {
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text(
-                    text = "Practice Scripts",
-                    fontSize = 32.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = EtymoDark
-                )
-                
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    PeacockMascot(size = 48.dp)
+                    Text(
+                        text = "Practice Scripts",
+                        fontSize = 32.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = EtymoDark
+                    )
+                }
+
                 // Camera Translate Button
                 Box(
                     modifier = Modifier
@@ -393,158 +420,189 @@ fun ScriptScreen() {
                     modifier = Modifier.align(Alignment.Center)
                 ) {
                     val isCorrect = tracingResult == TracingResult.CORRECT
-                    Box(
-                        modifier = Modifier
-                            .clip(RoundedCornerShape(20.dp))
-                            .background(
-                                if (isCorrect) EtymoGreen.copy(alpha = 0.9f)
-                                else EtymoRed.copy(alpha = 0.9f)
-                            )
-                            .padding(horizontal = 32.dp, vertical = 20.dp),
-                        contentAlignment = Alignment.Center
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(16.dp)
                     ) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(10.dp)
+                        PeacockMascot(
+                            isAnimating = isCorrect,
+                            frozenProgress = if (isCorrect) 0.75f else 0.0f,
+                            size = 160.dp
+                        )
+                        Box(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(20.dp))
+                                .background(
+                                    if (isCorrect) EtymoGreen.copy(alpha = 0.9f)
+                                    else EtymoRed.copy(alpha = 0.9f)
+                                )
+                                .padding(horizontal = 32.dp, vertical = 20.dp),
+                            contentAlignment = Alignment.Center
                         ) {
-                            Icon(
-                                imageVector = if (isCorrect) Icons.Default.CheckCircle
-                                else Icons.Default.Refresh,
-                                contentDescription = null,
-                                tint = Color.White,
-                                modifier = Modifier.size(28.dp)
-                            )
-                            Text(
-                                text = if (isCorrect) "Correct!" else "Try Again",
-                                fontSize = 20.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = Color.White
-                            )
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(10.dp)
+                            ) {
+                                Icon(
+                                    imageVector = if (isCorrect) Icons.Default.CheckCircle
+                                    else Icons.Default.Refresh,
+                                    contentDescription = null,
+                                    tint = Color.White,
+                                    modifier = Modifier.size(28.dp)
+                                )
+                                Text(
+                                    text = if (isCorrect) "Correct!" else "Try Again",
+                                    fontSize = 20.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color.White
+                                )
+                            }
                         }
                     }
                 }
-            }
 
-            // Controls Row
-            ClayCard(
-                modifier = Modifier.fillMaxWidth(),
-                backgroundColor = Color.White,
-                cornerRadius = 20.dp
-            ) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 4.dp, vertical = 6.dp),
-                    horizontalArrangement = Arrangement.SpaceEvenly,
-                    verticalAlignment = Alignment.CenterVertically
+                // Controls Row
+                ClayCard(
+                    modifier = Modifier.fillMaxWidth(),
+                    backgroundColor = Color.White,
+                    cornerRadius = 20.dp
                 ) {
-                    // Undo last stroke
-                    Box(
+                    Row(
                         modifier = Modifier
-                            .clip(RoundedCornerShape(14.dp))
-                            .clickable {
-                                if (strokes.isNotEmpty()) {
-                                    strokes = strokes.dropLast(1)
+                            .fillMaxWidth()
+                            .padding(horizontal = 4.dp, vertical = 6.dp),
+                        horizontalArrangement = Arrangement.SpaceEvenly,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        // Undo last stroke
+                        Box(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(14.dp))
+                                .clickable {
+                                    if (strokes.isNotEmpty()) {
+                                        strokes = strokes.dropLast(1)
+                                    }
+                                    tracingResult = TracingResult.NONE
                                 }
-                                tracingResult = TracingResult.NONE
+                                .padding(horizontal = 12.dp, vertical = 10.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(4.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Undo,
+                                    contentDescription = "Undo",
+                                    tint = EtymoDark,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                                Text(
+                                    "Undo",
+                                    fontSize = 13.sp,
+                                    fontWeight = FontWeight.Medium,
+                                    color = EtymoDark
+                                )
                             }
-                            .padding(horizontal = 12.dp, vertical = 10.dp),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(4.dp)
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.Undo,
-                                contentDescription = "Undo",
-                                tint = EtymoDark,
-                                modifier = Modifier.size(18.dp)
-                            )
-                            Text("Undo", fontSize = 13.sp, fontWeight = FontWeight.Medium, color = EtymoDark)
                         }
-                    }
 
-                    // Clear canvas
-                    Box(
-                        modifier = Modifier
-                            .clip(RoundedCornerShape(14.dp))
-                            .background(EtymoRed.copy(alpha = 0.1f))
-                            .clickable {
-                                strokes = emptyList()
-                                currentStroke = emptyList()
-                                tracingResult = TracingResult.NONE
+                        // Clear canvas
+                        Box(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(14.dp))
+                                .background(EtymoRed.copy(alpha = 0.1f))
+                                .clickable {
+                                    strokes = emptyList()
+                                    currentStroke = emptyList()
+                                    tracingResult = TracingResult.NONE
+                                }
+                                .padding(horizontal = 12.dp, vertical = 10.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(4.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Delete,
+                                    contentDescription = "Clear",
+                                    tint = EtymoRed,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                                Text(
+                                    "Clear",
+                                    fontSize = 13.sp,
+                                    fontWeight = FontWeight.Medium,
+                                    color = EtymoRed
+                                )
                             }
-                            .padding(horizontal = 12.dp, vertical = 10.dp),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(4.dp)
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.Delete,
-                                contentDescription = "Clear",
-                                tint = EtymoRed,
-                                modifier = Modifier.size(18.dp)
-                            )
-                            Text("Clear", fontSize = 13.sp, fontWeight = FontWeight.Medium, color = EtymoRed)
                         }
-                    }
 
-                    // Check accuracy
-                    Box(
-                        modifier = Modifier
-                            .clip(RoundedCornerShape(14.dp))
-                            .background(EtymoGreen.copy(alpha = 0.15f))
-                            .clickable { checkAccuracy() }
-                            .padding(horizontal = 12.dp, vertical = 10.dp),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(4.dp)
+                        // Check accuracy
+                        Box(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(14.dp))
+                                .background(EtymoGreen.copy(alpha = 0.15f))
+                                .clickable { checkAccuracy() }
+                                .padding(horizontal = 12.dp, vertical = 10.dp),
+                            contentAlignment = Alignment.Center
                         ) {
-                            Icon(
-                                imageVector = Icons.Default.CheckCircle,
-                                contentDescription = "Check",
-                                tint = EtymoGreen,
-                                modifier = Modifier.size(18.dp)
-                            )
-                            Text("Check", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = EtymoGreen)
-                        }
-                    }
-
-                    // Next character
-                    Box(
-                        modifier = Modifier
-                            .clip(RoundedCornerShape(14.dp))
-                            .background(EtymoYellow)
-                            .clickable {
-                                val nextIndex = selectedCharIndex + 1
-                                selectedCharIndex = if (nextIndex < currentScript.characters.size) nextIndex else 0
-                                strokes = emptyList()
-                                currentStroke = emptyList()
-                                tracingResult = TracingResult.NONE
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(4.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.CheckCircle,
+                                    contentDescription = "Check",
+                                    tint = EtymoGreen,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                                Text(
+                                    "Check",
+                                    fontSize = 13.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = EtymoGreen
+                                )
                             }
-                            .padding(horizontal = 12.dp, vertical = 10.dp),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(4.dp)
+                        }
+
+                        // Next character
+                        Box(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(14.dp))
+                                .background(EtymoYellow)
+                                .clickable {
+                                    val nextIndex = selectedCharIndex + 1
+                                    selectedCharIndex =
+                                        if (nextIndex < currentScript.characters.size) nextIndex else 0
+                                    strokes = emptyList()
+                                    currentStroke = emptyList()
+                                    tracingResult = TracingResult.NONE
+                                }
+                                .padding(horizontal = 12.dp, vertical = 10.dp),
+                            contentAlignment = Alignment.Center
                         ) {
-                            Text("Next", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = EtymoDark)
-                            Icon(
-                                imageVector = Icons.Default.NavigateNext,
-                                contentDescription = "Next",
-                                tint = EtymoDark,
-                                modifier = Modifier.size(18.dp)
-                            )
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(4.dp)
+                            ) {
+                                Text(
+                                    "Next",
+                                    fontSize = 13.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = EtymoDark
+                                )
+                                Icon(
+                                    imageVector = Icons.Default.NavigateNext,
+                                    contentDescription = "Next",
+                                    tint = EtymoDark,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                            }
                         }
                     }
                 }
             }
         }
     }
-}
+    }

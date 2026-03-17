@@ -11,6 +11,7 @@ import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.VolumeUp
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -19,12 +20,18 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import com.example.etymo.domain.NodeOrigin
 import com.example.etymo.domain.WordNode
 import com.example.etymo.ui.theme.*
+import com.airbnb.lottie.compose.LottieAnimation
+import com.airbnb.lottie.compose.LottieCompositionSpec
+import com.airbnb.lottie.compose.LottieConstants
+import com.airbnb.lottie.compose.rememberLottieComposition
+import com.example.etymo.R
 
 // ─── Root Node Card (claymorphism) ──────────────────────────────────────────
 
@@ -245,6 +252,50 @@ fun NodeInfoDialog(
                     }
                 }
             }
+        }
+    }
+}
+
+// ─── Lottie Mascot (Enhanced) ──────────────────────────────────────────────────
+
+/**
+ * Peacock mascot with support for:
+ * - **Animated mode** (`isAnimating = true`): loops the full animation
+ * - **Frozen frame** (`isAnimating = false`): displays a static frame at [frozenProgress] (0f..1f)
+ * - Configurable [size] (default 180dp — much more prominent)
+ *
+ * Common frozen progress values:
+ * - 0.0f  → resting / neutral pose
+ * - 0.25f → slightly perked up
+ * - 0.5f  → mid-spread (confident look)
+ * - 0.75f → near full spread (celebrating)
+ */
+@Composable
+fun PeacockMascot(
+    modifier: Modifier = Modifier,
+    isAnimating: Boolean = true,
+    frozenProgress: Float = 0f,
+    size: Dp = 180.dp
+) {
+    val animationRes = R.raw.peacock
+    val composition by rememberLottieComposition(LottieCompositionSpec.RawRes(animationRes))
+
+    Box(
+        modifier = modifier,
+        contentAlignment = Alignment.Center
+    ) {
+        if (isAnimating) {
+            LottieAnimation(
+                composition = composition,
+                iterations = LottieConstants.IterateForever,
+                modifier = Modifier.size(size)
+            )
+        } else {
+            LottieAnimation(
+                composition = composition,
+                progress = { frozenProgress },
+                modifier = Modifier.size(size)
+            )
         }
     }
 }

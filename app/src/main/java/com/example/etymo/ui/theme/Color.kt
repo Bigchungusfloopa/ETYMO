@@ -34,3 +34,11 @@ val EtymoPurple = Color(0xFF9C27B0)
 val EtymoSoftGreen = Color(0xFF43A047)
 val EtymoOrange = Color(0xFFFF6D00)
 val EtymoBlue = Color(0xFF2962FF)
+
+// Quiz / Learn colors
+val EtymoCorrect = Color(0xFF58CC02)
+val EtymoCorrectDark = Color(0xFF489E00)
+val EtymoWrong = Color(0xFFFF4B4B)
+val EtymoWrongDark = Color(0xFFEA2B2B)
+val EtymoLocked = Color(0xFFAFAFAF)
+val EtymoProgressBg = Color(0xFFE5E5E5)
