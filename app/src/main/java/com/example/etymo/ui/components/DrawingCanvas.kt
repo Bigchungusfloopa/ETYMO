@@ -29,6 +29,25 @@ import com.example.etymo.ui.theme.EtymoYellow
 import com.example.etymo.ui.theme.EtymoYellowDeep
 import com.example.etymo.ui.theme.GlassBorder
 
+import androidx.compose.foundation.gestures.detectTransformGestures
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.clickable
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Create
+import androidx.compose.material.icons.filled.PanTool
+import androidx.compose.material3.Icon
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.graphics.graphicsLayer
+import com.example.etymo.ui.theme.EtymoDark
+
+enum class CanvasMode { DRAW, MOVE }
+
 @Composable
 fun DrawingCanvas(
     strokes: List<List<Offset>>,
@@ -42,6 +61,10 @@ fun DrawingCanvas(
 ) {
     val textMeasurer = rememberTextMeasurer()
 
+    var scale by remember { mutableStateOf(1f) }
+    var pan by remember { mutableStateOf(Offset.Zero) }
+    var mode by remember { mutableStateOf(CanvasMode.DRAW) }
+
     Box(
         modifier = modifier
             .clip(RoundedCornerShape(24.dp))
@@ -51,24 +74,40 @@ fun DrawingCanvas(
                 color = GlassBorder,
                 shape = RoundedCornerShape(24.dp)
             ),
-        contentAlignment = Alignment.Center
     ) {
+        // The actual drawing area with transformation applied
         Canvas(
             modifier = Modifier
                 .fillMaxSize()
-                .pointerInput(Unit) {
-                    detectDragGestures(
-                        onDragStart = { offset ->
-                            onStrokeStart(offset)
-                        },
-                        onDrag = { change, _ ->
-                            change.consume()
-                            onStrokeDrag(change.position)
-                        },
-                        onDragEnd = {
-                            onStrokeEnd()
+                .graphicsLayer(
+                    scaleX = scale,
+                    scaleY = scale,
+                    translationX = pan.x,
+                    translationY = pan.y
+                )
+                .pointerInput(mode) {
+                    if (mode == CanvasMode.DRAW) {
+                        detectDragGestures(
+                            onDragStart = { offset ->
+                                // Unproject the raw touch offset based on scale & pan
+                                val unprojectedX = (offset.x - pan.x) / scale
+                                val unprojectedY = (offset.y - pan.y) / scale
+                                onStrokeStart(Offset(unprojectedX, unprojectedY))
+                            },
+                            onDrag = { change, _ ->
+                                change.consume()
+                                val unprojectedX = (change.position.x - pan.x) / scale
+                                val unprojectedY = (change.position.y - pan.y) / scale
+                                onStrokeDrag(Offset(unprojectedX, unprojectedY))
+                            },
+                            onDragEnd = { onStrokeEnd() }
+                        )
+                    } else {
+                        detectTransformGestures { _, panChange, zoomChange, _ ->
+                            scale = (scale * zoomChange).coerceIn(1f, 5f)
+                            pan += panChange
                         }
-                    )
+                    }
                 }
         ) {
             val canvasWidth = size.width
@@ -78,45 +117,41 @@ fun DrawingCanvas(
             val gridColor = Color(0xFFE8E8E8)
             val gridSpacing = 40.dp.toPx()
 
-            // Vertical grid lines
             var x = gridSpacing
             while (x < canvasWidth) {
                 drawLine(
                     color = gridColor,
                     start = Offset(x, 0f),
                     end = Offset(x, canvasHeight),
-                    strokeWidth = 1f
+                    strokeWidth = 1f / scale // keep visually 1px
                 )
                 x += gridSpacing
             }
 
-            // Horizontal grid lines
             var y = gridSpacing
             while (y < canvasHeight) {
                 drawLine(
                     color = gridColor,
                     start = Offset(0f, y),
                     end = Offset(canvasWidth, y),
-                    strokeWidth = 1f
+                    strokeWidth = 1f / scale
                 )
                 y += gridSpacing
             }
 
             // Draw center crosshair guides
             val guideColor = Color(0xFFD0D0D0)
-            // Vertical center
             drawLine(
                 color = guideColor,
                 start = Offset(canvasWidth / 2, 0f),
                 end = Offset(canvasWidth / 2, canvasHeight),
-                strokeWidth = 1.5f
+                strokeWidth = 1.5f / scale
             )
-            // Horizontal center
             drawLine(
                 color = guideColor,
                 start = Offset(0f, canvasHeight / 2),
                 end = Offset(canvasWidth, canvasHeight / 2),
-                strokeWidth = 1.5f
+                strokeWidth = 1.5f / scale
             )
 
             // Draw reference character as watermark
@@ -147,7 +182,6 @@ fun DrawingCanvas(
                         for (i in 1 until points.size) {
                             val prev = points[i - 1]
                             val curr = points[i]
-                            // Use quadratic bezier for smoother curves
                             quadraticBezierTo(
                                 prev.x, prev.y,
                                 (prev.x + curr.x) / 2f, (prev.y + curr.y) / 2f
@@ -158,19 +192,61 @@ fun DrawingCanvas(
                         path = path,
                         color = strokeColor,
                         style = Stroke(
-                            width = strokeWidth,
+                            width = strokeWidth / scale, // keep visual width
                             cap = StrokeCap.Round,
                             join = StrokeJoin.Round
                         )
                     )
                 } else if (points.size == 1) {
-                    // Single dot
                     drawCircle(
                         color = strokeColor,
-                        radius = strokeWidth / 2f,
+                        radius = (strokeWidth / 2f) / scale,
                         center = points.first()
                     )
                 }
+            }
+        }
+
+        // Overlay controls for mode switching
+        Row(
+            modifier = Modifier
+                .align(Alignment.TopEnd)
+                .padding(12.dp)
+                .clip(RoundedCornerShape(12.dp))
+                .background(Color.White.copy(alpha = 0.9f))
+                .border(1.dp, GlassBorder, RoundedCornerShape(12.dp))
+                .padding(4.dp),
+            horizontalArrangement = Arrangement.spacedBy(4.dp)
+        ) {
+            Box(
+                modifier = Modifier
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(if (mode == CanvasMode.DRAW) EtymoYellow else Color.Transparent)
+                    .clickable { mode = CanvasMode.DRAW }
+                    .padding(8.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Create,
+                    contentDescription = "Draw",
+                    tint = EtymoDark,
+                    modifier = Modifier.size(20.dp)
+                )
+            }
+            Box(
+                modifier = Modifier
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(if (mode == CanvasMode.MOVE) EtymoYellow else Color.Transparent)
+                    .clickable { mode = CanvasMode.MOVE }
+                    .padding(8.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = Icons.Default.PanTool,
+                    contentDescription = "Move/Zoom",
+                    tint = EtymoDark,
+                    modifier = Modifier.size(20.dp)
+                )
             }
         }
     }

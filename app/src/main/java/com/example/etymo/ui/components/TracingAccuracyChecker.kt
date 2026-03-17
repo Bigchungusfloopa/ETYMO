@@ -53,6 +53,9 @@ object TracingAccuracyChecker {
             isAntiAlias = true
             typeface = Typeface.DEFAULT
             textAlign = Paint.Align.CENTER
+            style = Paint.Style.FILL_AND_STROKE
+            strokeWidth = 30f // Thick enough to be forgiving, thin enough to require intent
+            strokeJoin = Paint.Join.ROUND
         }
         val textBounds = android.graphics.Rect()
         textPaint.getTextBounds(referenceChar, 0, referenceChar.length, textBounds)

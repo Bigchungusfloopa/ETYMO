@@ -37,9 +37,18 @@ import com.example.etymo.ui.components.ScriptCharacterCard
 import com.example.etymo.ui.components.TracingAccuracyChecker
 import com.example.etymo.ui.theme.*
 import kotlinx.coroutines.delay
+import android.graphics.Bitmap
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.material.icons.filled.CameraAlt
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.TextButton
 
 // Result state after checking accuracy
 enum class TracingResult { NONE, CORRECT, TRY_AGAIN }
+
+enum class CameraFlowState { IDLE, INTRO, ANALYZING, RESULT }
 
 @Composable
 fun ScriptScreen() {
@@ -57,6 +66,27 @@ fun ScriptScreen() {
 
     DisposableEffect(Unit) {
         onDispose { tts?.shutdown() }
+    }
+
+    // Camera launcher for dummy translation flow
+    var cameraFlowState by remember { mutableStateOf(CameraFlowState.IDLE) }
+    
+    val cameraLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.TakePicturePreview()
+    ) { bitmap: Bitmap? ->
+        if (bitmap != null) {
+            cameraFlowState = CameraFlowState.ANALYZING
+        } else {
+            cameraFlowState = CameraFlowState.IDLE
+        }
+    }
+    
+    // Simulate AI processing
+    LaunchedEffect(cameraFlowState) {
+        if (cameraFlowState == CameraFlowState.ANALYZING) {
+            delay(2000)
+            cameraFlowState = CameraFlowState.RESULT
+        }
     }
 
     var selectedScriptIndex by remember { mutableIntStateOf(0) }
@@ -116,9 +146,65 @@ fun ScriptScreen() {
             strokes = strokes,
             canvasWidth = canvasSize.width.toFloat(),
             canvasHeight = canvasSize.height.toFloat(),
-            threshold = 0.20f
+            threshold = 0.05f // Very relaxed strictness
         )
         tracingResult = if (isCorrect) TracingResult.CORRECT else TracingResult.TRY_AGAIN
+    }
+
+    // AI Translation Flow Dialogs
+    when (cameraFlowState) {
+        CameraFlowState.INTRO -> {
+            AlertDialog(
+                onDismissRequest = { cameraFlowState = CameraFlowState.IDLE },
+                title = { Text("Translate (Demo)", fontWeight = FontWeight.Bold, color = EtymoDark) },
+                text = { Text("Translate native language sign boards into English using the camera.", color = EtymoDarkCard) },
+                confirmButton = {
+                    TextButton(onClick = { cameraLauncher.launch(null) }) {
+                        Text("Open Camera", color = EtymoYellowDeep, fontWeight = FontWeight.Bold)
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = { cameraFlowState = CameraFlowState.IDLE }) {
+                        Text("Cancel", color = EtymoDark)
+                    }
+                },
+                containerColor = Color.White,
+                shape = RoundedCornerShape(16.dp)
+            )
+        }
+        CameraFlowState.ANALYZING -> {
+            AlertDialog(
+                onDismissRequest = { /* Cannot dismiss while analyzing */ },
+                title = { Text("Translating...", fontWeight = FontWeight.Bold, color = EtymoDark) },
+                text = { 
+                    Row(
+                        modifier = Modifier.fillMaxWidth(), 
+                        horizontalArrangement = Arrangement.Center,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        CircularProgressIndicator(color = EtymoYellowDeep)
+                    }
+                },
+                confirmButton = { },
+                containerColor = Color.White,
+                shape = RoundedCornerShape(16.dp)
+            )
+        }
+        CameraFlowState.RESULT -> {
+            AlertDialog(
+                onDismissRequest = { cameraFlowState = CameraFlowState.IDLE },
+                title = { Text("AI Translation (Demo)", fontWeight = FontWeight.Bold, color = EtymoDark) },
+                text = { Text("Result: \"Welcome to our shop!\"", color = EtymoDarkCard) },
+                confirmButton = {
+                    TextButton(onClick = { cameraFlowState = CameraFlowState.IDLE }) {
+                        Text("OK", color = EtymoYellowDeep, fontWeight = FontWeight.Bold)
+                    }
+                },
+                containerColor = Color.White,
+                shape = RoundedCornerShape(16.dp)
+            )
+        }
+        CameraFlowState.IDLE -> {}
     }
 
     Box(
@@ -134,12 +220,35 @@ fun ScriptScreen() {
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             // Header
-            Text(
-                text = "Practice Scripts",
-                fontSize = 32.sp,
-                fontWeight = FontWeight.Bold,
-                color = EtymoDark
-            )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "Practice Scripts",
+                    fontSize = 32.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = EtymoDark
+                )
+                
+                // Camera Translate Button
+                Box(
+                    modifier = Modifier
+                        .size(44.dp)
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(EtymoYellow.copy(alpha = 0.2f))
+                        .clickable { cameraFlowState = CameraFlowState.INTRO },
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.CameraAlt,
+                        contentDescription = "Translate with AI",
+                        tint = EtymoDark,
+                        modifier = Modifier.size(24.dp)
+                    )
+                }
+            }
 
             // Script selector chips
             LazyRow(
